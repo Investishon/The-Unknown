@@ -9,6 +9,7 @@ from mob2 import Mob2
 from mob3 import Mob3
 from mob4 import Mob4
 from mob5 import Mob5
+from Glav_fon import BackgroundManager  # Импортируем новый класс
 
 
 class Game(arcade.Window):
@@ -20,7 +21,7 @@ class Game(arcade.Window):
         self.a_pressed = False
         self.s_pressed = False
         self.d_pressed = False
-        arcade.set_background_color(arcade.color.AMAZON)
+        self.background_manager = BackgroundManager()  # Создаем менеджер фона
 
         # Кнопки для спауна мобов
         self.mob_buttons = []
@@ -98,9 +99,14 @@ class Game(arcade.Window):
 
     def on_draw(self):
         self.clear()
+
+        # 1. Отрисовываем фон
+        self.background_manager.draw(self.width, self.height)
+
+        # 2. Отрисовываем все сущности
         self.all_entities.draw()
 
-        # Рисуем кнопки для мобов
+        # 3. Рисуем кнопки для мобов
         for button in self.mob_buttons:
             # Рисуем прямоугольник кнопки
             left = button['x']
@@ -127,7 +133,7 @@ class Game(arcade.Window):
                 14
             )
 
-        # Круг вокруг управляемого персонажа
+        # 4. Круг вокруг управляемого персонажа
         if self.controlled_entity and self.controlled_entity.is_controlled:
             arcade.draw_circle_outline(
                 self.controlled_entity.center_x,
@@ -137,21 +143,21 @@ class Game(arcade.Window):
                 3
             )
 
-        # Информация
+        # 5. Информация
         arcade.draw_text(
             "WASD - движение | Клик на персонажа - выбрать | F - раздвинуть экран",
             10, self.height - 20,
             arcade.color.WHITE, 12
         )
 
-        # Подсказка про кнопки
+        # 6. Подсказка про кнопки
         arcade.draw_text(
             "Кликните на кнопки выше для спауна мобов (двигаются по кругу)",
             10, self.height - 35,
             arcade.color.LIGHT_YELLOW, 12
         )
 
-        # Отображение текущей скорости персонажа
+        # 7. Отображение текущей скорости персонажа
         if self.controlled_entity and isinstance(self.controlled_entity, (Person1, Person2)):
             arcade.draw_text(
                 f"Текущая скорость: {self.controlled_entity.movement_speed}",
