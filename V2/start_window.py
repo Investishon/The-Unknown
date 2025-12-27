@@ -1,92 +1,35 @@
-"""
-start_window.py
-Стартовый экран
-"""
-
 import arcade
-import arcade.gui
-from constants import *
-
 
 class StartWindow(arcade.View):
-    """Стартовое окно"""
-
     def __init__(self):
         super().__init__()
-        # Менеджер UI (пока не включаем!)
-        self.ui_manager = arcade.gui.UIManager()
-        self.create_buttons()
-
-    def create_buttons(self):
-        """Создаем кнопки"""
-        # Вертикальный контейнер
-        v_box = arcade.gui.UIBoxLayout(vertical=True, space_between=20)
-
-        # Заголовок
-        title = arcade.gui.UILabel(
-            text="МОЯ ИГРА",
-            font_size=36,
-            font_name="Arial",
-            text_color=TEXT_COLOR,
-            bold=True
-        )
-        v_box.add(title.with_padding(bottom=50))
-
-        # Кнопка "Начать"
-        start_btn = arcade.gui.UIFlatButton(
-            text="Начать",
-            width=200,
-            height=50
-        )
-        start_btn.on_click = self.start_game
-        v_box.add(start_btn)
-
-        # Кнопка "Выход"
-        exit_btn = arcade.gui.UIFlatButton(
-            text="Выход",
-            width=200,
-            height=50
-        )
-        exit_btn.on_click = self.exit_game
-        v_box.add(exit_btn)
-
-        # Центрируем контейнер
-        self.ui_manager.add(arcade.gui.UIAnchorLayout(
-            anchor_x="center",
-            anchor_y="center",
-            child=v_box
-        ))
-
-    def start_game(self, event):
-        """Начинаем игру"""
-        from level_select import LevelSelectWindow
-        levels = LevelSelectWindow()
-        self.window.show_view(levels)
-
-    def exit_game(self, event):
-        """Выход из игры"""
-        arcade.exit()
-
-    def on_draw(self):
-        """Рисуем экран - ВАЖЕН ПОРЯДОК!"""
-        # 1. Очищаем и заливаем фон
-        self.clear(BACKGROUND_COLOR)
-
-        # 2. Текст подсказки
-        arcade.draw_text(
-            "Нажми 'Начать' чтобы выбрать уровень",
-            SCREEN_WIDTH // 2, 100,
-            TEXT_COLOR, 16,
-            anchor_x="center"
-        )
-
-        # 3. Кнопки рисуем ПОСЛЕДНИМИ (они будут сверху)
-        self.ui_manager.draw()
+        self.title = None
+        self.btn1 = None
+        self.btn2 = None
+        self.btn3 = None
 
     def on_show_view(self):
-        """Активируем UI при показе окна"""
-        self.ui_manager.enable()
+        arcade.set_background_color(arcade.color.BLACK)
+        # Создаём текстовые объекты ОДИН РАЗ
+        self.title = arcade.Text("The Unknown", 400, 500, arcade.color.WHITE, 48, anchor_x="center", font_name="Kenney Future")
+        self.btn1 = arcade.Text("Новая игра", 400, 350, arcade.color.WHITE, 24, anchor_x="center", font_name="Kenney Future")
+        self.btn2 = arcade.Text("Продолжить", 400, 300, arcade.color.WHITE, 24, anchor_x="center", font_name="Kenney Future")
+        self.btn3 = arcade.Text("Авторы", 400, 250, arcade.color.WHITE, 24, anchor_x="center", font_name="Kenney Future")
 
-    def on_hide_view(self):
-        """Деактивируем UI при скрытии окна"""
-        self.ui_manager.disable()
+    def on_draw(self):
+        self.clear()
+        self.title.draw()
+        self.btn1.draw()
+        self.btn2.draw()
+        self.btn3.draw()
+
+    def on_mouse_press(self, x, y, button, modifiers):
+        if 300 <= x <= 500:
+            if 338 <= y <= 372:
+                from level_select import LevelSelect
+                self.window.show_view(LevelSelect())
+            elif 288 <= y <= 322:
+                pass
+            elif 238 <= y <= 272:
+                from authors_window import AuthorsWindow
+                self.window.show_view(AuthorsWindow())
