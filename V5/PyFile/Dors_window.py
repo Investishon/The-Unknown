@@ -43,7 +43,7 @@ class DorsWindow(arcade.Window):
                         image_path = alt_path
                         break
 
-            num_doors = random.randint(2, 4)
+            num_doors = random.randint(2, 3)
 
             for i in range(num_doors):
                 sprite = arcade.Sprite(image_path, scale=0.5)
