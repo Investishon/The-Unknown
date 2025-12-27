@@ -9,7 +9,7 @@ from mob2 import Mob2
 from mob3 import Mob3
 from mob4 import Mob4
 from mob5 import Mob5
-from Glav_fon import BackgroundManager  # Импортируем новый класс
+from Glav_fon import BackgroundManager
 
 
 class Game(arcade.Window):
@@ -17,11 +17,13 @@ class Game(arcade.Window):
         super().__init__(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, SCREEN_TITLE)
         self.all_entities = None
         self.controlled_entity = None
+        self.player_list = None
+        self.mob_list = None
         self.w_pressed = False
         self.a_pressed = False
         self.s_pressed = False
         self.d_pressed = False
-        self.background_manager = BackgroundManager()  # Создаем менеджер фона
+        self.background_manager = BackgroundManager()
 
         # Кнопки для спауна мобов
         self.mob_buttons = []
@@ -31,26 +33,32 @@ class Game(arcade.Window):
 
     def setup(self):
         self.all_entities = arcade.SpriteList()
+        self.player_list = arcade.SpriteList()
+        self.mob_list = arcade.SpriteList()
 
-        # Спауним двух персонажей сразу (БЕЗ параметров!)
-        person1 = Person1()  # ← ПУСТЫЕ СКОБКИ!
+        # Спауним двух персонажей
+        person1 = Person1()
         person1.center_x = 200
         person1.center_y = 300
+        person1.is_controlled = False
 
-        person2 = Person2()  # ← ПУСТЫЕ СКОБКИ!
+        person2 = Person2()
         person2.center_x = 500
         person2.center_y = 300
+        person2.is_controlled = False
 
         self.all_entities.append(person1)
         self.all_entities.append(person2)
+        self.player_list.append(person1)
+        self.player_list.append(person2)
 
         # Создаем кнопки для мобов
         self.create_mob_buttons()
 
-        self.controlled_entity = self.all_entities[0]
+        # Первый персонаж становится управляемым
+        self.controlled_entity = person1
         self.controlled_entity.is_controlled = True
 
-        # Отладочный вывод для проверки скорости
         print(f"Person1 создан: speed={person1.movement_speed}")
         print(f"Person2 создан: speed={person2.movement_speed}")
 
@@ -69,46 +77,75 @@ class Game(arcade.Window):
             })
 
     def spawn_mob(self, mob_id):
-        """Спаун моба по ID (БЕЗ передачи параметров!)"""
+        """Спаун моба по ID"""
         mob = None
         if mob_id == 1:
-            mob = Mob1()  # ← ПУСТЫЕ СКОБКИ!
+            mob = Mob1()
         elif mob_id == 2:
-            mob = Mob2()  # ← ПУСТЫЕ СКОБКИ!
+            mob = Mob2()
         elif mob_id == 3:
-            mob = Mob3()  # ← ПУСТЫЕ СКОБКИ!
+            mob = Mob3()
         elif mob_id == 4:
-            mob = Mob4()  # ← ПУСТЫЕ СКОБКИ!
+            mob = Mob4()
         elif mob_id == 5:
-            mob = Mob5()  # ← ПУСТЫЕ СКОБКИ!
+            mob = Mob5()
 
         if mob:
-            # Спауним в случайном месте в правой части экрана
             mob.center_x = random.randrange(self.width - 300, self.width - 100)
             mob.center_y = random.randrange(100, self.height - 100)
 
             # Добавляем атрибуты для кругового движения
-            mob.circle_center_x = mob.center_x  # центр круга
+            mob.circle_center_x = mob.center_x
             mob.circle_center_y = mob.center_y
-            mob.circle_radius = 50  # радиус круга
-            mob.circle_angle = random.uniform(0, 2 * math.pi)  # начальный угол
-            mob.circle_speed = mob.rotation_speed * 0.02  # скорость вращения
+            mob.circle_radius = 50
+            mob.circle_angle = random.uniform(0, 2 * math.pi)
+            mob.circle_speed = mob.rotation_speed * 0.02
 
             self.all_entities.append(mob)
+            self.mob_list.append(mob)
             print(f"Создан моб {mob_id}: rotation_speed={mob.rotation_speed}")
+
+    def check_collisions(self, entity, dx, dy):
+        """Проверяет столкновения и возвращает разрешенные перемещения"""
+        # Сохраняем текущую позицию
+        old_x = entity.center_x
+        old_y = entity.center_y
+
+        # Предполагаем новую позицию
+        new_x = old_x + dx
+        new_y = old_y + dy
+
+        # Временно перемещаем спрайт для проверки
+        entity.center_x = new_x
+        entity.center_y = new_y
+
+        # Проверяем столкновения
+        colliding_sprites = None
+        if entity in self.player_list:
+            # Персонаж проверяет столкновения с мобами
+            colliding_sprites = entity.collides_with_list(self.mob_list)
+        elif entity in self.mob_list:
+            # Моб проверяет столкновения с персонажами
+            colliding_sprites = entity.collides_with_list(self.player_list)
+
+        # Возвращаем спрайт на место
+        entity.center_x = old_x
+        entity.center_y = old_y
+
+        # Если есть столкновения, не разрешаем движение
+        if colliding_sprites:
+            print(f"Столкновение! {type(entity).__name__} не может двигаться в этом направлении")
+            return 0, 0  # Блокируем движение
+
+        return dx, dy  # Разрешаем движение
 
     def on_draw(self):
         self.clear()
-
-        # 1. Отрисовываем фон
         self.background_manager.draw(self.width, self.height)
-
-        # 2. Отрисовываем все сущности
         self.all_entities.draw()
 
-        # 3. Рисуем кнопки для мобов
+        # Рисуем кнопки для мобов
         for button in self.mob_buttons:
-            # Рисуем прямоугольник кнопки
             left = button['x']
             right = button['x'] + button['width']
             bottom = button['y'] - button['height'] / 2
@@ -121,8 +158,6 @@ class Game(arcade.Window):
                 (left, top)
             ]
             arcade.draw_polygon_filled(points, arcade.color.GRAY)
-
-            # Рамка кнопки
             arcade.draw_polygon_outline(points, arcade.color.BLACK, 2)
 
             arcade.draw_text(
@@ -133,7 +168,7 @@ class Game(arcade.Window):
                 14
             )
 
-        # 4. Круг вокруг управляемого персонажа
+        # Круг вокруг управляемого персонажа
         if self.controlled_entity and self.controlled_entity.is_controlled:
             arcade.draw_circle_outline(
                 self.controlled_entity.center_x,
@@ -143,21 +178,19 @@ class Game(arcade.Window):
                 3
             )
 
-        # 5. Информация
+        # Информация
         arcade.draw_text(
             "WASD - движение | Клик на персонажа - выбрать | F - раздвинуть экран",
             10, self.height - 20,
             arcade.color.WHITE, 12
         )
 
-        # 6. Подсказка про кнопки
         arcade.draw_text(
             "Кликните на кнопки выше для спауна мобов (двигаются по кругу)",
             10, self.height - 35,
             arcade.color.LIGHT_YELLOW, 12
         )
 
-        # 7. Отображение текущей скорости персонажа
         if self.controlled_entity and isinstance(self.controlled_entity, (Person1, Person2)):
             arcade.draw_text(
                 f"Текущая скорость: {self.controlled_entity.movement_speed}",
@@ -168,27 +201,27 @@ class Game(arcade.Window):
     def on_update(self, delta_time):
         # БЛОК 1: Управление персонажем через WASD
         if self.controlled_entity and self.controlled_entity.is_controlled:
-            # Проверяем, что это персонаж (не моб!)
             if isinstance(self.controlled_entity, (Person1, Person2)):
                 # Сбрасываем движение
-                self.controlled_entity.change_x = 0
-                self.controlled_entity.change_y = 0
-
-                # Используем movement_speed ИЗ КЛАССА персонажа
+                dx, dy = 0, 0
                 player_speed = self.controlled_entity.movement_speed
 
+                # Определяем желаемое направление
                 if self.w_pressed:
-                    self.controlled_entity.change_y = player_speed
+                    dy = player_speed
                 if self.s_pressed:
-                    self.controlled_entity.change_y = -player_speed
+                    dy = -player_speed
                 if self.a_pressed:
-                    self.controlled_entity.change_x = -player_speed
+                    dx = -player_speed
                 if self.d_pressed:
-                    self.controlled_entity.change_x = player_speed
+                    dx = player_speed
 
-                # Обновляем позицию
-                self.controlled_entity.center_x += self.controlled_entity.change_x
-                self.controlled_entity.center_y += self.controlled_entity.change_y
+                # Проверяем столкновения
+                allowed_dx, allowed_dy = self.check_collisions(self.controlled_entity, dx, dy)
+
+                # Обновляем позицию, если движение разрешено
+                self.controlled_entity.center_x += allowed_dx
+                self.controlled_entity.center_y += allowed_dy
 
                 # Границы экрана
                 if self.controlled_entity.left < 0:
@@ -200,16 +233,34 @@ class Game(arcade.Window):
                 if self.controlled_entity.top > self.height:
                     self.controlled_entity.top = self.height
 
-        # БЛОК 2: Движение мобов по кругу (НЕ персонажей!)
-        for entity in self.all_entities:
-            # Проверяем, что это моб (по наличию circle_radius)
-            if hasattr(entity, 'circle_radius') and not entity.is_controlled:
-                # Используем rotation_speed ИЗ КЛАССА моба
-                entity.circle_angle += entity.circle_speed
+        # БЛОК 2: Движение мобов по кругу
+        for mob in self.mob_list:
+            if hasattr(mob, 'circle_radius'):
+                # Сохраняем текущую позицию
+                old_x = mob.center_x
+                old_y = mob.center_y
 
                 # Вычисляем новую позицию по кругу
-                entity.center_x = entity.circle_center_x + math.cos(entity.circle_angle) * entity.circle_radius
-                entity.center_y = entity.circle_center_y + math.sin(entity.circle_angle) * entity.circle_radius
+                mob.circle_angle += mob.circle_speed
+                new_x = mob.circle_center_x + math.cos(mob.circle_angle) * mob.circle_radius
+                new_y = mob.circle_center_y + math.sin(mob.circle_angle) * mob.circle_radius
+
+                # Вычисляем смещение
+                dx = new_x - old_x
+                dy = new_y - old_y
+
+                # Проверяем столкновения моба с персонажами
+                allowed_dx, allowed_dy = self.check_collisions(mob, dx, dy)
+
+                # Если есть столкновение, блокируем движение моба
+                if allowed_dx == 0 and allowed_dy == 0:
+                    # Моб сталкивается с персонажем - блокируем движение
+                    # Оставляем моба на месте
+                    pass
+                else:
+                    # Движение разрешено
+                    mob.center_x = new_x
+                    mob.center_y = new_y
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.W:
@@ -223,12 +274,9 @@ class Game(arcade.Window):
         elif key == arcade.key.ESCAPE:
             arcade.close_window()
         elif key == arcade.key.F:
-            # Раздвигаем экран на максимум
             self.set_size(MAX_SCREEN_WIDTH, MAX_SCREEN_HEIGHT)
-            # Обновляем позиции кнопок
             self.create_mob_buttons()
         elif key == arcade.key.P:
-            # Тестовая кнопка для проверки скорости
             if self.controlled_entity and isinstance(self.controlled_entity, (Person1, Person2)):
                 print(
                     f"Текущий персонаж: {type(self.controlled_entity).__name__}, скорость={self.controlled_entity.movement_speed}")
@@ -245,7 +293,6 @@ class Game(arcade.Window):
 
     def on_mouse_press(self, x, y, button, modifiers):
         if button == arcade.MOUSE_BUTTON_LEFT:
-            # Проверяем клик по кнопкам мобов
             for button_data in self.mob_buttons:
                 button_left = button_data['x']
                 button_right = button_data['x'] + button_data['width']
@@ -257,11 +304,9 @@ class Game(arcade.Window):
                     self.spawn_mob(button_data['id'])
                     return
 
-            # Клик по существам для выбора управления - ТОЛЬКО ПЕРСОНАЖИ
             clicked = arcade.get_sprites_at_point((x, y), self.all_entities)
             if clicked:
                 new_entity = clicked[0]
-                # Управляем только персонажами (не мобами)
                 if (isinstance(new_entity, (Person1, Person2)) and
                         new_entity != self.controlled_entity):
                     if self.controlled_entity:

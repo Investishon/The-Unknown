@@ -46,6 +46,17 @@ class BackgroundManager:
     def draw(self, width, height):
         """Отрисовывает фон на весь экран"""
         if self.background_texture:
-            # Вариант 1: Используем XYWH (x, y, width, height)
-            rect = arcade.XYWH(0, 0, width, height)
-            arcade.draw_texture_rect(self.background_texture, rect)
+            # Создаем временный список спрайтов
+            sprite_list = arcade.SpriteList()
+
+            # Создаем спрайт
+            sprite = arcade.Sprite()
+            sprite.texture = self.background_texture
+            sprite.width = width
+            sprite.height = height
+            sprite.center_x = width // 2
+            sprite.center_y = height // 2
+
+            # Добавляем в список и рисуем
+            sprite_list.append(sprite)
+            sprite_list.draw()
