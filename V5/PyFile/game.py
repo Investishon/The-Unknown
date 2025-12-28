@@ -538,10 +538,10 @@ class Game(arcade.Window):
             self.a_pressed = True
         elif key == arcade.key.D:
             self.d_pressed = True
-        elif key == arcade.key.N:
+        elif key == arcade.key.F:
             self.n_pressed = True
             self.process_punch()
-        elif key == arcade.key.F:
+        elif key == arcade.key.N:
             self.set_size(MAX_SCREEN_WIDTH, MAX_SCREEN_HEIGHT)
 
     def on_key_release(self, key, modifiers):

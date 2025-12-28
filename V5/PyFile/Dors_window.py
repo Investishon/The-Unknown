@@ -173,7 +173,7 @@ class DorsWindow(arcade.Window):
         elif key == arcade.key.D:
             self.d_pressed = True
 
-        elif key == arcade.key.N and self.current_door and self.player_spawned:
+        elif key == arcade.key.F and self.current_door and self.player_spawned:
             self.start_transition()
 
     def on_key_release(self, key, modifiers):
