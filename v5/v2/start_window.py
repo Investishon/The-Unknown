@@ -14,9 +14,7 @@ class StartWindow(arcade.View):
         # Создаём текстовые объекты ОДИН РАЗ
         self.title = arcade.Text("The Unknown", 400, 500, arcade.color.WHITE, 48, anchor_x="center",
                                  font_name="Kenney Future")
-        self.btn1 = arcade.Text("Новая игра", 400, 350, arcade.color.WHITE, 24, anchor_x="center",
-                                font_name="Kenney Future")
-        self.btn2 = arcade.Text("Продолжить", 400, 300, arcade.color.WHITE, 24, anchor_x="center",
+        self.btn2 = arcade.Text("Начать", 400, 300, arcade.color.WHITE, 24, anchor_x="center",
                                 font_name="Kenney Future")
         self.btn3 = arcade.Text("Авторы", 400, 250, arcade.color.WHITE, 24, anchor_x="center",
                                 font_name="Kenney Future")
@@ -24,7 +22,6 @@ class StartWindow(arcade.View):
     def on_draw(self):
         self.clear()
         self.title.draw()
-        self.btn1.draw()
         self.btn2.draw()
         self.btn3.draw()
 
