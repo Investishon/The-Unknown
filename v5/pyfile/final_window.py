@@ -76,31 +76,24 @@ class FinalWindow(arcade.View):
 
     def return_to_main_menu(self):
         """Возврат в главное меню"""
-        # Импортируем здесь чтобы избежать циклических импортов
-        import sys
-        import os
-
-        # Добавляем путь к v2 для импорта стартового окна
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        parent_dir = os.path.dirname(current_dir)  # Выходим из pyfile
-        v2_path = os.path.join(parent_dir, "v2")
-
-        sys.path.insert(0, v2_path)
-
         try:
+            # Импортируем StartWindow из v2
+            import sys
+            import os
+
+            # Получаем путь к v2
+            current_dir = os.path.dirname(os.path.abspath(__file__))  # pyfile/
+            parent_dir = os.path.dirname(current_dir)  # v5/
+            v2_path = os.path.join(parent_dir, "v2")
+
+            sys.path.insert(0, v2_path)
+
             from start_window import StartWindow
 
-            # Закрываем текущее окно
-            self.window.close()
-
-            # Создаем новое окно с главным меню
-            import time
-            time.sleep(0.1)
-
-            new_window = arcade.Window(800, 600, "The Unknown")
-            new_window.show_view(StartWindow())
-            arcade.run()
+            # Возвращаемся в главное меню в ТОМ ЖЕ окне
+            start_view = StartWindow()
+            self.window.show_view(start_view)  # ← Меняем View, а не создаем новое окно
 
         except ImportError:
-            # Если не удалось импортировать из v2, просто закрываем игру
-            arcade.close_window()
+            # Если не удалось импортировать, просто закрываем окно
+            self.window.close()

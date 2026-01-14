@@ -13,23 +13,24 @@ sys.path.insert(0, v2_path)
 try:
     from start_window import StartWindow
 
-
     def main():
         """Запускает игру через новое меню"""
+        # СОЗДАЕМ ОДНО ОКНО - и больше нигде не создаем!
         window = arcade.Window(800, 600, "The Unknown")
         window.show_view(StartWindow())
-        arcade.run()
+        arcade.run()  # ← ТОЛЬКО ОДИН arcade.run() во всей программе!
 
 except ImportError as e:
     print(f"Не удалось загрузить меню из v2: {e}")
     print("Запускаю старую версию игры...")
 
     # Запасной вариант: запуск старой игры
+    # НО И ЗДЕСЬ ТОЖЕ ОДНО ОКНО!
     from dors_window import DorsWindow
 
-
     def main():
-        window = DorsWindow()
+        window = arcade.Window(1200, 750, "The Unknown")  # ← Изменено с 800x600 на 1200x750
+        window.show_view(StartWindow())
         arcade.run()
 
 if __name__ == "__main__":

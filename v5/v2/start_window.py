@@ -41,12 +41,6 @@ class StartWindow(arcade.View):
 
     def open_dors_window(self):
         """Открывает окно выбора дверей (старую игру) из pyfile"""
-        # Закрываем текущее окно меню
-        self.window.close()
-
-        import time
-        time.sleep(0.1)
-
         try:
             # Импортируем DorsWindow из pyfile
             import sys
@@ -61,18 +55,13 @@ class StartWindow(arcade.View):
             sys.path.insert(0, pyfile_path)
 
             # Теперь импортируем
-            from dors_window import DorsWindow
+            from dors_window import DorsWindow  # ← ИСПРАВЛЕНО!
 
-            # Запускаем игру
-            print("Запускаю DorsWindow...")
-            window = DorsWindow()
-            arcade.run()
+            # Создаем DorsWindow View и показываем его в ТОМ ЖЕ окне
+            dors_view = DorsWindow()
+            self.window.show_view(dors_view)  # ← ВАЖНО: меняем View, а не окно!
 
         except ImportError as e:
             print(f"Ошибка загрузки Dors_window: {e}")
-            print("Создаю новое окно меню...")
-
-            # Возвращаемся в меню
-            new_window = arcade.Window(800, 600, "The Unknown")
-            new_window.show_view(StartWindow())
-            arcade.run()
+            # Возвращаемся в меню (в том же окне)
+            self.window.show_view(StartWindow())
