@@ -12,11 +12,15 @@ from mob3 import Mob3
 from mob4 import Mob4
 from mob5 import Mob5
 from glav_fon import BackgroundManager
+from arcade.camera import Camera2D
 
 
 class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
     def __init__(self, selected_background_folder=None, level=1, max_levels=3, player=None):
         super().__init__()
+
+        self.camera = None
+        self.CAMERA_LERP = 0.12
 
         # Размеры окна (берем из main.py)
         self.window_width = SCREEN_WIDTH  # ← Используем константу
@@ -60,6 +64,28 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
 
         # Сразу настраиваем игру
         self.setup_single_player()
+
+    def on_show_view(self):
+        """Вызывается при показе View"""
+        # Создаем камеру КАК В ПРИМЕРЕ
+        self.camera = Camera2D()  # ← БЕЗ параметров!
+
+    def center_camera_on_player(self):
+        """Как в примере - плавное следование"""
+        if self.controlled_entity and self.camera:
+            # Текущая позиция камеры
+            cx, cy = self.camera.position
+
+            # Целевая позиция (центр на персонаже)
+            tx = self.controlled_entity.center_x
+            ty = self.controlled_entity.center_y
+
+            # Плавное перемещение (lerp) как в примере
+            smooth_x = cx + (tx - cx) * self.CAMERA_LERP
+            smooth_y = cy + (ty - cy) * self.CAMERA_LERP
+
+            # Устанавливаем позицию камеры
+            self.camera.position = (smooth_x, smooth_y)
 
     def setup_single_player(self):
         print(f"DEBUG_Game: setup_single_player вызван")
@@ -353,6 +379,7 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
 
     def on_draw(self):
         self.clear()
+        self.camera.use()
         self.background_manager.draw(self.window_width, self.window_height)
         self.all_entities.draw()
 
@@ -458,6 +485,7 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
         )
 
     def on_update(self, delta_time):
+        self.center_camera_on_player()
         # Если игра на паузе - не обновляем логику
         if self.game_paused:
             return

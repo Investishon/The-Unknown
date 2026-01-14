@@ -5,11 +5,13 @@ import time
 from constants1 import *
 from person1 import Person1
 from person2 import Person2
-
+from arcade.camera import Camera2D
 
 class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
     def __init__(self, level=1, max_levels=3, player=None):
         super().__init__()
+        self.camera = None
+        self.CAMERA_LERP = 0.12
         # Размеры окна (берем из main.py)
         self.window_width = SCREEN_WIDTH  # ← Используем константу
         self.window_height = SCREEN_HEIGHT
@@ -42,6 +44,30 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
             self.player_spawned = True
 
         self.load_door_images()
+
+    def on_show_view(self):
+        """Вызывается при показе этого View"""
+        arcade.set_background_color(arcade.color.WHITE)
+
+        # Создаем камеру как в game.py
+        self.camera = Camera2D()  # ← БЕЗ параметров!
+
+    def center_camera_on_player(self):
+        """Как в game.py - плавное следование"""
+        if self.player and self.camera and self.player_spawned:
+            # Текущая позиция камеры
+            cx, cy = self.camera.position
+
+            # Целевая позиция (центр на персонаже)
+            tx = self.player.center_x
+            ty = self.player.center_y
+
+            # Плавное перемещение (lerp) как в game.py
+            smooth_x = cx + (tx - cx) * self.CAMERA_LERP
+            smooth_y = cy + (ty - cy) * self.CAMERA_LERP
+
+            # Устанавливаем позицию камеры
+            self.camera.position = (smooth_x, smooth_y)
 
     def load_door_images(self):
         try:
@@ -133,12 +159,10 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
 
         return None
 
-    def on_show_view(self):
-        """Вызывается при показе этого View"""
-        arcade.set_background_color(arcade.color.WHITE)
 
     def on_draw(self):
         self.clear()
+        self.camera.use()
 
         # Фон
         arcade.draw_lrbt_rectangle_filled(0, self.window_width, 0, self.window_height, arcade.color.WHITE)
@@ -182,6 +206,7 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
             )
 
     def on_update(self, delta_time):
+        self.center_camera_on_player()
         if self.in_transition:
             self.transition_timer += delta_time
 

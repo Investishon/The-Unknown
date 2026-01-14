@@ -29,7 +29,7 @@ except ImportError as e:
     from dors_window import DorsWindow
 
     def main():
-        window = arcade.Window(1200, 750, "The Unknown")  # ← Изменено с 800x600 на 1200x750
+        window = arcade.Window(800, 600, "The Unknown")  # ← Изменено с 800x600 на 1200x750
         window.show_view(StartWindow())
         arcade.run()
 
