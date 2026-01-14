@@ -40,7 +40,7 @@ class StartWindow(arcade.View):
                 self.window.show_view(AuthorsWindow())
 
     def open_dors_window(self):
-        """Открывает окно выбора дверей (старую игру) из PyFile"""
+        """Открывает окно выбора дверей (старую игру) из pyfile"""
         # Закрываем текущее окно меню
         self.window.close()
 
@@ -48,20 +48,20 @@ class StartWindow(arcade.View):
         time.sleep(0.1)
 
         try:
-            # Импортируем DorsWindow из PyFile
+            # Импортируем DorsWindow из pyfile
             import sys
             import os
 
-            # Получаем путь к PyFile
-            current_dir = os.path.dirname(os.path.abspath(__file__))  # V2/
-            parent_dir = os.path.dirname(current_dir)  # V5/
-            pyfile_path = os.path.join(parent_dir, "PyFile")
+            # Получаем путь к pyfile
+            current_dir = os.path.dirname(os.path.abspath(__file__))  # v2/
+            parent_dir = os.path.dirname(current_dir)  # v5/
+            pyfile_path = os.path.join(parent_dir, "pyfile")
 
-            # Добавляем PyFile в путь для импорта
+            # Добавляем pyfile в путь для импорта
             sys.path.insert(0, pyfile_path)
 
             # Теперь импортируем
-            from Dors_window import DorsWindow
+            from dors_window import DorsWindow
 
             # Запускаем игру
             print("Запускаю DorsWindow...")

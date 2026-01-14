@@ -80,10 +80,10 @@ class FinalWindow(arcade.View):
         import sys
         import os
 
-        # Добавляем путь к V2 для импорта стартового окна
+        # Добавляем путь к v2 для импорта стартового окна
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        parent_dir = os.path.dirname(current_dir)  # Выходим из PyFile
-        v2_path = os.path.join(parent_dir, "V2")
+        parent_dir = os.path.dirname(current_dir)  # Выходим из pyfile
+        v2_path = os.path.join(parent_dir, "v2")
 
         sys.path.insert(0, v2_path)
 
@@ -102,5 +102,5 @@ class FinalWindow(arcade.View):
             arcade.run()
 
         except ImportError:
-            # Если не удалось импортировать из V2, просто закрываем игру
+            # Если не удалось импортировать из v2, просто закрываем игру
             arcade.close_window()

@@ -3,7 +3,7 @@ import math
 import os
 import random
 import time
-from constants import *
+from constants1 import *
 from person1 import Person1
 from person2 import Person2
 from mob1 import Mob1
@@ -11,7 +11,7 @@ from mob2 import Mob2
 from mob3 import Mob3
 from mob4 import Mob4
 from mob5 import Mob5
-from Glav_fon import BackgroundManager
+from glav_fon import BackgroundManager
 
 
 class Game(arcade.Window):
@@ -579,7 +579,7 @@ class Game(arcade.Window):
         arcade.close_window()
         time.sleep(0.1)
 
-        from Dors_window import DorsWindow
+        from dors_window import DorsWindow
         dors = DorsWindow()
         dors.level = self.level + 1  # Увеличиваем уровень
 

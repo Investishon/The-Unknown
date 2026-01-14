@@ -2,7 +2,7 @@ import arcade
 import random
 import os
 import time
-from constants import *
+from constants1 import *
 from person1 import Person1
 from person2 import Person2
 
