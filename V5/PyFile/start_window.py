@@ -28,8 +28,7 @@ class StartWindow(arcade.View):
     def on_mouse_press(self, x, y, button, modifiers):
         if 300 <= x <= 500:
             if 338 <= y <= 372:  # "Новая игра"
-                from level_select import LevelSelect
-                self.window.show_view(LevelSelect())
+                abs = 0
             elif 288 <= y <= 322:  # "Продолжить" - ОТКРЫВАЕМ DORS_WINDOW
                 self.open_dors_window()  # ← ВЫЗЫВАЕМ НОВЫЙ МЕТОД
             elif 238 <= y <= 272:  # "Авторы"
@@ -52,10 +51,10 @@ class StartWindow(arcade.View):
             sys.path.insert(0, pyfile_path)
 
             # Теперь импортируем
-            from dors_window import DorsWindow  # ← ИСПРАВЛЕНО!
+            from dors_window import DorsView  # ← ИСПРАВЛЕНО!
 
             # Создаем DorsWindow View и показываем его в ТОМ ЖЕ окне
-            dors_view = DorsWindow()
+            dors_view = DorsView()
             self.window.show_view(dors_view)  # ← ВАЖНО: меняем View, а не окно!
 
         except ImportError as e:

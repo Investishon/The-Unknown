@@ -1,25 +1,19 @@
+# dors_window.py
 import arcade
 import random
 import os
 import time
-from constants1 import *
 from person1 import Person1
 from person2 import Person2
-from arcade.camera import Camera2D
 
-class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
-    def __init__(self, level=1, max_levels=3, player=None):
+
+class DorsView(arcade.View):
+    def __init__(self, level=1, player=None):
         super().__init__()
-        self.camera = None
-        self.CAMERA_LERP = 0.12
-        # Размеры окна (берем из main.py)
-        self.window_width = SCREEN_WIDTH  # ← Используем константу
-        self.window_height = SCREEN_HEIGHT
-
         self.selected_person = None
         self.door_list = arcade.SpriteList()
-        self.player = player  # Принимаем персонажа из предыдущего уровня
-        self.player_spawned = False
+        self.player = player
+        self.player_spawned = False if player is None else True
         self.w_pressed = False
         self.a_pressed = False
         self.d_pressed = False
@@ -33,41 +27,15 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
         self.in_transition = False
         self.selected_folder = None
         self.level = level
-        self.max_levels = max_levels
+        self.max_levels = 3
         self.game_completed = False
-
-        # Если персонажа нет (первый уровень), ждем выбора
-        if not self.player:
-            self.show_selection_text = True
-        else:
-            self.show_selection_text = False
-            self.player_spawned = True
 
         self.load_door_images()
 
-    def on_show_view(self):
-        """Вызывается при показе этого View"""
-        arcade.set_background_color(arcade.color.WHITE)
-
-        # Создаем камеру как в game.py
-        self.camera = Camera2D()  # ← БЕЗ параметров!
-
-    def center_camera_on_player(self):
-        """Как в game.py - плавное следование"""
-        if self.player and self.camera and self.player_spawned:
-            # Текущая позиция камеры
-            cx, cy = self.camera.position
-
-            # Целевая позиция (центр на персонаже)
-            tx = self.player.center_x
-            ty = self.player.center_y
-
-            # Плавное перемещение (lerp) как в game.py
-            smooth_x = cx + (tx - cx) * self.CAMERA_LERP
-            smooth_y = cy + (ty - cy) * self.CAMERA_LERP
-
-            # Устанавливаем позицию камеры
-            self.camera.position = (smooth_x, smooth_y)
+        # Если игрок передан (из предыдущей игры), сразу размещаем его
+        if self.player and self.player_spawned:
+            self.player.center_x = 600  # Середина экрана
+            self.player.center_y = self.ground_level + self.player.height / 2
 
     def load_door_images(self):
         try:
@@ -85,38 +53,36 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
             for i in range(num_doors):
                 sprite = arcade.Sprite(image_path, scale=0.5)
                 sprite.center_y = 300
-                sprite.texture_path = image_path  # Сохраняем путь к текстуре
+                sprite.texture_path = image_path
                 self.door_list.append(sprite)
 
             self.arrange_images()
 
         except Exception as e:
-            print(f"Ошибка загрузки изображений дверей: {e}")
+            print(f"Ошибка загрузки дверей: {e}")
 
     def arrange_images(self):
         if not self.door_list:
             return
 
         num_images = len(self.door_list)
-        spacing = (self.window_width - 100) / (num_images + 1)
+        if self.window:
+            spacing = (self.window.width - 100) / (num_images + 1)
 
-        for i, sprite in enumerate(self.door_list):
-            sprite.center_x = 50 + spacing * (i + 1)
+            for i, sprite in enumerate(self.door_list):
+                sprite.center_x = 50 + spacing * (i + 1)
 
     def spawn_player(self):
-        if not self.player:
-            if self.selected_person == "Person1":
-                self.player = Person1()
-            elif self.selected_person == "Person2":
-                self.player = Person2()
-            else:
-                return  # Персонаж не выбран
+        if self.selected_person == "Person1":
+            self.player = Person1()
+        elif self.selected_person == "Person2":
+            self.player = Person2()
 
         if self.player:
-            self.player.center_x = self.window_width // 2
+            if self.window:
+                self.player.center_x = self.window.width // 2
             self.player.center_y = self.ground_level + self.player.height / 2
             self.player_spawned = True
-            self.show_selection_text = False
 
     def update_physics(self):
         if not self.player or not self.player_spawned:
@@ -140,10 +106,11 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
 
             self.player.center_x += dx
 
-            if self.player.left < 0:
-                self.player.left = 0
-            if self.player.right > self.window_width:
-                self.player.right = self.window_width
+            if self.window:
+                if self.player.left < 0:
+                    self.player.left = 0
+                if self.player.right > self.window.width:
+                    self.player.right = self.window.width
 
     def check_door_collision(self):
         if not self.player or not self.door_list:
@@ -155,25 +122,39 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
             border_distance_x = dx - combined_half_width
 
             if border_distance_x <= 0:
-                return door  # Возвращаем конкретную дверь
+                return door
 
         return None
 
+    def on_show(self):
+        """Вызывается при показе View"""
+        if self.window:
+            self.window.set_size(1200, 750)
+            self.arrange_images()
 
     def on_draw(self):
-        self.clear()
-        self.camera.use()
+        self.clear(arcade.color.WHITE)
 
-        # Фон
-        arcade.draw_lrbt_rectangle_filled(0, self.window_width, 0, self.window_height, arcade.color.WHITE)
+        # Рисуем таймер если идет переход
+        if self.in_transition and self.window:
+            remaining = max(0, 4 - self.transition_timer)
+            arcade.draw_text(
+                f"Переход через: {remaining:.1f}с",
+                self.window.width // 2,
+                self.window.height // 2,
+                arcade.color.RED,
+                32,
+                align="center",
+                anchor_x="center"
+            )
 
         self.door_list.draw()
 
-        if self.player and self.player_spawned and not self.in_transition:
-            # Отрисовываем через SpriteList (гарантированно работает)
-            player_list = arcade.SpriteList()
-            player_list.append(self.player)
-            player_list.draw()
+        if self.player and not self.in_transition:
+            # Рисуем игрока через SpriteList (как в старом коде)
+            temp_list = arcade.SpriteList()
+            temp_list.append(self.player)
+            temp_list.draw()
 
             if self.current_door:
                 arcade.draw_circle_outline(
@@ -183,30 +164,8 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
                     arcade.color.RED,
                     3
                 )
-        # Текст выбора персонажа
-        if self.show_selection_text:
-            arcade.draw_text(
-                "Выберите персонажа: 1 - Person1, 2 - Person2",
-                self.window_width // 2,
-                self.window_height - 50,
-                arcade.color.BLACK,
-                16,
-                anchor_x="center"
-            )
-
-        # Таймер перехода
-        if self.in_transition:
-            arcade.draw_text(
-                f"Переход через: {4 - int(self.transition_timer)}",
-                self.window_width // 2,
-                100,
-                arcade.color.RED,
-                24,
-                anchor_x="center"
-            )
 
     def on_update(self, delta_time):
-        self.center_camera_on_player()
         if self.in_transition:
             self.transition_timer += delta_time
 
@@ -242,6 +201,13 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
         elif key == arcade.key.F and self.current_door and self.player_spawned:
             self.start_transition()
 
+        # Изменение размера окна
+        elif key == arcade.key.N and self.window:
+            if self.window.width == 1200:
+                self.window.set_size(2000, 1500)
+            else:
+                self.window.set_size(1200, 750)
+
     def on_key_release(self, key, modifiers):
         if key == arcade.key.A:
             self.a_pressed = False
@@ -253,7 +219,7 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
         self.in_transition = True
         self.transition_timer = 0
 
-        # Меняем текстуру ТОЛЬКО у текущей двери (self.current_door)
+        # Меняем текстуру у текущей двери
         if self.current_door:
             new_path = "../texture/dors/2.png"
             if not os.path.exists(new_path):
@@ -266,26 +232,30 @@ class DorsWindow(arcade.View):  # ← ИЗМЕНЕНО НА View!
             if os.path.exists(new_path):
                 self.current_door.texture = arcade.load_texture(new_path)
 
-        # Определяем какая папка выбрана для фона
+        # Выбираем случайный фон
         folders = ["ad", "les", "podzemel", "zamok"]
         self.selected_folder = random.choice(folders)
-        print(f"DEBUG: Выбрана папка фона: {self.selected_folder}")
+        print(f"Выбран фон: {self.selected_folder}")
 
+    # В dors_window.py в методе start_game:
     def start_game(self):
-        """Запускает игровое View (Game) с выбранным фоном"""
-        print(f"DEBUG: Уровень {self.level}/{self.max_levels}")
-        print(f"DEBUG: Передаем фон: {self.selected_folder}")
+        """Запускает главную игру с выбранным фоном"""
+        print(f"Уровень {self.level}/{self.max_levels}")
+        print(f"Передаем фон: {self.selected_folder}")
 
-        # Импортируем Game (который тоже должен быть View!)
-        from game import Game
+        from game import GameView
 
-        # Создаем игровое View и переключаемся на него
-        game_view = Game(
+        game_view = GameView(
             selected_background_folder=self.selected_folder,
             level=self.level,
-            max_levels=self.max_levels,
-            player=self.player  # Передаем персонажа
+            max_levels=self.max_levels
         )
 
-        # Переключаем View в том же окне
+        # Используем setup_single_player если есть player
+        if self.player:
+            game_view.setup_single_player(self.player)
+        else:
+            game_view.setup()
+
+        # Переключаем View вместо создания нового окна
         self.window.show_view(game_view)

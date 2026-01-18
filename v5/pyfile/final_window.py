@@ -1,3 +1,4 @@
+
 import arcade
 
 
@@ -5,7 +6,7 @@ class FinalWindow(arcade.View):
     def __init__(self, result="victory", score=0, levels_completed=0, total_levels=3):
         super().__init__()
         self.result = result  # "victory" или "defeat"
-        self.score = score
+        self.score = score  # Очки уже из файла
         self.levels_completed = levels_completed
         self.total_levels = total_levels
         self.title = None
@@ -46,7 +47,7 @@ class FinalWindow(arcade.View):
         )
 
         self.score_text = arcade.Text(
-            f"Очки: {self.score}",
+            f"Финальные очки: {self.score}",
             400, 300,
             arcade.color.LIGHT_GREEN, 24,
             anchor_x="center", font_name="Kenney Future"
@@ -68,7 +69,6 @@ class FinalWindow(arcade.View):
         self.score_text.draw()
         self.finish_button.draw()
 
-
     def on_mouse_press(self, x, y, button, modifiers):
         # Нажатие на кнопку "Завершить"
         if 325 <= x <= 475 and 188 <= y <= 212:
@@ -77,23 +77,8 @@ class FinalWindow(arcade.View):
     def return_to_main_menu(self):
         """Возврат в главное меню"""
         try:
-            # Импортируем StartWindow из v2
-            import sys
-            import os
-
-            # Получаем путь к v2
-            current_dir = os.path.dirname(os.path.abspath(__file__))  # pyfile/
-            parent_dir = os.path.dirname(current_dir)  # v5/
-            v2_path = os.path.join(parent_dir, "v2")
-
-            sys.path.insert(0, v2_path)
-
             from start_window import StartWindow
-
-            # Возвращаемся в главное меню в ТОМ ЖЕ окне
             start_view = StartWindow()
-            self.window.show_view(start_view)  # ← Меняем View, а не создаем новое окно
-
+            self.window.show_view(start_view)
         except ImportError:
-            # Если не удалось импортировать, просто закрываем окно
             self.window.close()

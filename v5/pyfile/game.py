@@ -3,7 +3,6 @@ import math
 import os
 import random
 import time
-from constants1 import *
 from person1 import Person1
 from person2 import Person2
 from mob1 import Mob1
@@ -12,133 +11,385 @@ from mob3 import Mob3
 from mob4 import Mob4
 from mob5 import Mob5
 from glav_fon import BackgroundManager
-from arcade.camera import Camera2D
+from barrel import Barrel
+
+# Глобальная переменная для музыки
+background_music = None
 
 
-class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
-    def __init__(self, selected_background_folder=None, level=1, max_levels=3, player=None):
+class DustParticle:
+    """Класс для частиц темно-серой пыли"""
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.size = random.uniform(1.5, 3.5)  # Маленькие частицы
+        # ТЕМНО-СЕРЫЕ цвета
+        self.color = (
+            random.randint(80, 100),  # Темно-серый R
+            random.randint(80, 100),  # Темно-серый G
+            random.randint(80, 100),  # Темно-серый B
+            random.randint(120, 160)  # Средняя прозрачность
+        )
+        self.speed_x = random.uniform(-0.2, 0.2)  # Легкое движение по X
+        self.speed_y = random.uniform(-1.5, -0.8)  # Падение вниз
+        self.lifetime = random.uniform(2, 4)  # Время жизни
+        self.alpha = self.color[3]  # Начальная прозрачность
+        self.created_time = time.time()
+
+    def update(self):
+        current_time = time.time()
+        elapsed = current_time - self.created_time
+
+        # Движение
+        self.x += self.speed_x
+        self.y += self.speed_y
+
+        # Затухание
+        life_progress = elapsed / self.lifetime
+        self.alpha = int(self.color[3] * (1 - life_progress))
+
+        # Возвращаем True если частица еще жива
+        return elapsed < self.lifetime and self.alpha > 10
+
+    def draw(self):
+        # Рисуем простой круг
+        if self.alpha > 10:
+            arcade.draw_circle_filled(
+                self.x, self.y, self.size,
+                (self.color[0], self.color[1], self.color[2], self.alpha)
+            )
+
+
+class GameView(arcade.View):
+    def __init__(self, selected_background_folder=None, level=1, max_levels=3):
         super().__init__()
 
-        self.camera = None
-        self.CAMERA_LERP = 0.12
-
-        # Размеры окна (берем из main.py)
-        self.window_width = SCREEN_WIDTH  # ← Используем константу
-        self.window_height = SCREEN_HEIGHT
-        # Сохраняем переданный фон
         self.selected_background_folder = selected_background_folder
         print(f"DEBUG_Game_init: Фон получен в конструкторе: {self.selected_background_folder}")
         self.level = level
         self.max_levels = max_levels
         self.game_paused = False
-        self.pause_overlay_alpha = 180  # Прозрачность затемнения
+        self.pause_overlay_alpha = 180
 
-        # Просто флаг и время
-        self.score = 0
+        # Загружаем очки из файла при создании
+        self.total_score = self.load_score_from_file()
+        self.level_score = 0  # Очки за текущий уровень
+        self.score = self.total_score + self.level_score  # Общие очки
+
         self.mob_killed_time = None
         self.return_timer = 0
         self.mob_killed = False
         self.kill_time = None
 
         self.all_entities = None
-        self.controlled_entity = player  # Используем переданного персонажа
+        self.controlled_entity = None
         self.player_list = None
         self.mob_list = None
+        self.barrel_list = None
         self.w_pressed = False
         self.a_pressed = False
         self.d_pressed = False
         self.n_pressed = False
+        self.f_pressed = False
 
-        # Теперь создаем BackgroundManager БЕЗ авто-загрузки
         self.background_manager = BackgroundManager()
 
-        # Физический движок
-        self.ground_level = 100
+        self.ground_level = 100  # Уровень земли
         self.gravity = 0.5
         self.jump_force = 15
         self.player_velocities = {}
 
-        # Системы таймеров
         self.contact_timers = {}
         self.mob_attack_timers = {}
 
-        # Сразу настраиваем игру
-        self.setup_single_player()
+        # Система частиц пыли
+        self.dust_particles = []
+        self.particle_timer = 0
+        self.particles_per_second = 25
+        self.max_particles = 200
 
-    def on_show_view(self):
-        """Вызывается при показе View"""
-        # Создаем камеру КАК В ПРИМЕРЕ
-        self.camera = Camera2D()  # ← БЕЗ параметров!
+    def load_score_from_file(self):
+        """Загружает очки из файла coin.txt"""
+        try:
+            if os.path.exists("coin.txt"):
+                with open("coin.txt", "r") as f:
+                    content = f.read().strip()
+                    if content:
+                        return int(content)
+            return 0
+        except Exception as e:
+            print(f"Ошибка загрузки очков из файла: {e}")
+            return 0
 
-    def center_camera_on_player(self):
-        """Как в примере - плавное следование"""
-        if self.controlled_entity and self.camera:
-            # Текущая позиция камеры
-            cx, cy = self.camera.position
+    def save_score_to_file(self, score):
+        """Сохраняет очки в файл coin.txt"""
+        try:
+            with open("coin.txt", "w") as f:
+                f.write(str(score))
+            print(f"Очки сохранены в файл: {score}")
+        except Exception as e:
+            print(f"Ошибка сохранения очков в файл: {e}")
 
-            # Целевая позиция (центр на персонаже)
-            tx = self.controlled_entity.center_x
-            ty = self.controlled_entity.center_y
+    def clear_score_file(self):
+        """Очищает файл с очками"""
+        try:
+            with open("coin.txt", "w") as f:
+                f.write("0")
+            print("Файл с очками очищен")
+        except Exception as e:
+            print(f"Ошибка очистки файла с очками: {e}")
 
-            # Плавное перемещение (lerp) как в примере
-            smooth_x = cx + (tx - cx) * self.CAMERA_LERP
-            smooth_y = cy + (ty - cy) * self.CAMERA_LERP
+    def update_score_display(self):
+        """Обновляет отображаемые очки (сумма общих и уровня)"""
+        self.score = self.total_score + self.level_score
 
-            # Устанавливаем позицию камеры
-            self.camera.position = (smooth_x, smooth_y)
+    def play_background_music(self):
+        """Включает случайную фоновую музыку из 4 песен"""
+        global background_music, music_player
 
-    def setup_single_player(self):
+        # Останавливаем текущую музыку
+        self.stop_background_music()
+
+        # 4 песни в папке sound
+        music_files = [
+            "../sound/1.mp3",
+            "../sound/2.mp3",
+            "../sound/3.mp3",
+            "../sound/4.mp3",
+            "../sound/1.wav",
+            "../sound/2.wav",
+            "../sound/3.wav",
+            "../sound/4.wav",
+            "../sound/1.ogg",
+            "../sound/2.ogg",
+            "../sound/3.ogg",
+            "../sound/4.ogg"
+        ]
+
+        # Пробуем найти доступный файл
+        available_music = []
+        for music_file in music_files:
+            if os.path.exists(music_file):
+                available_music.append(music_file)
+
+        if available_music:
+            # Выбираем случайный трек
+            chosen_music = random.choice(available_music)
+            print(f"Включаем музыку: {chosen_music}")
+
+            try:
+                # Загружаем и воспроизводим музыку
+                background_music = arcade.Sound(chosen_music, streaming=True)
+                music_player = background_music.play(volume=0.3)  # Громкость 30%
+            except Exception as e:
+                print(f"Ошибка воспроизведения музыки: {e}")
+                background_music = None
+                music_player = None
+        else:
+            print("Музыкальные файлы не найдены! Создайте папку 'sound' с файлами 1.mp3, 2.mp3, 3.mp3, 4.mp3")
+
+    def stop_background_music(self):
+        """Останавливает фоновую музыку"""
+        global background_music, music_player
+        if background_music and music_player:
+            background_music.stop(music_player)
+            background_music = None
+            music_player = None
+
+    def setup(self):
+        self.all_entities = arcade.SpriteList()
+        self.player_list = arcade.SpriteList()
+        self.mob_list = arcade.SpriteList()
+        self.barrel_list = arcade.SpriteList()
+
+        person1 = Person1()
+        person1.center_x = 200
+        person1.center_y = self.ground_level + person1.height / 2
+        person1.is_controlled = False
+
+        person2 = Person2()
+        person2.center_x = 500
+        person2.center_y = self.ground_level + person2.height / 2
+        person2.is_controlled = False
+
+        self.all_entities.append(person1)
+        self.all_entities.append(person2)
+        self.player_list.append(person1)
+        self.player_list.append(person2)
+
+        self.player_velocities[id(person1)] = 0
+        self.player_velocities[id(person2)] = 0
+
+        self.controlled_entity = person1
+        self.controlled_entity.is_controlled = True
+
+        self.spawn_barrel()
+
+        print(f"Начало уровня {self.level}. Общие очки: {self.total_score}, Очки уровня: {self.level_score}")
+        print(
+            f"Person1: punch={person1.punch_damage}, radius={person1.punch_radius}, reserve={person1.punch_reserve_time}s")
+        print(
+            f"Person2: punch={person2.punch_damage}, radius={person2.punch_radius}, reserve={person2.punch_reserve_time}s")
+
+    def setup_single_player(self, player):
         print(f"DEBUG_Game: setup_single_player вызван")
         print(f"DEBUG_Game: selected_background_folder = {self.selected_background_folder}")
+
+        # ВКЛЮЧАЕМ МУЗЫКУ ПРИ ЗАПУСКЕ УРОВНЯ
+        self.play_background_music()
 
         self.all_entities = arcade.SpriteList()
         self.player_list = arcade.SpriteList()
         self.mob_list = arcade.SpriteList()
+        self.barrel_list = arcade.SpriteList()
 
-        # Если персонаж передан - используем его, иначе создаем нового
-        if not self.controlled_entity:
-            self.controlled_entity = Person1()  # По умолчанию Person1
-            print("DEBUG_Game: Создан новый персонаж Person1")
+        player.center_x = 200
+        player.center_y = self.ground_level + player.height / 2
+        player.is_controlled = True
 
-        # ПЕРСОНАЖ СПАВНИТСЯ СЛЕВА
-        self.controlled_entity.center_x = 200
-        self.controlled_entity.center_y = self.ground_level + self.controlled_entity.height / 2
-        self.controlled_entity.is_controlled = True
+        self.all_entities.append(player)
+        self.player_list.append(player)
+        self.player_velocities[id(player)] = 0
+        self.controlled_entity = player
 
-        self.all_entities.append(self.controlled_entity)
-        self.player_list.append(self.controlled_entity)
-        self.player_velocities[id(self.controlled_entity)] = 0
+        self.spawn_barrel()
 
-        # Загружаем фон из выбранной папки если есть
         if self.selected_background_folder:
             print(f"DEBUG_Game: Загружаем фон из {self.selected_background_folder}")
             self.load_specific_background(self.selected_background_folder)
 
-            # Спаун моба в зависимости от фона
             print(f"DEBUG_Game: Спауним моба для {self.selected_background_folder}")
             self.spawn_mob_by_background()
         else:
             print(f"DEBUG_Game: selected_background_folder не установлен!")
 
+    def update_dust_particles(self, delta_time):
+        """Обновляет систему частиц пыли - ТОЛЬКО ПАДАЮЩИЕ"""
+        if not self.window:
+            return
+
+        self.particle_timer += delta_time
+
+        # Спауним новые частицы
+        particles_to_spawn = int(self.particle_timer * self.particles_per_second)
+        if particles_to_spawn > 0 and len(self.dust_particles) < self.max_particles:
+            self.particle_timer = 0
+
+            for _ in range(min(particles_to_spawn, 5)):
+                spawn_x = random.uniform(0, self.window.width)
+                spawn_y = self.window.height + 50  # Сверху экрана
+
+                particle = DustParticle(spawn_x, spawn_y)
+                self.dust_particles.append(particle)
+
+        # Обновляем существующие частицы
+        alive_particles = []
+        for particle in self.dust_particles:
+            if particle.update():
+                if particle.y > -50:  # Если не ушла слишком низко
+                    alive_particles.append(particle)
+        self.dust_particles = alive_particles
+
+    def spawn_barrel(self):
+        """Создает бочку, проверяя чтобы не пересекалась с игроком"""
+        try:
+            max_attempts = 10
+            for attempt in range(max_attempts):
+                barrel = Barrel()
+
+                if self.window:
+                    min_x = 300  # Отступ от краев
+                    max_x = self.window.width - 300
+                    barrel.center_x = random.randint(min_x, max_x)
+                else:
+                    barrel.center_x = 600
+
+                barrel.center_y = self.ground_level + barrel.height / 2
+
+                # Проверяем коллизию только с игроком (персонажем)
+                collision_with_player = False
+                for player in self.player_list:
+                    dx = abs(barrel.center_x - player.center_x)
+                    dy = abs(barrel.center_y - player.center_y)
+                    combined_half_width = (barrel.width / 2 + player.width / 2)
+                    combined_half_height = (barrel.height / 2 + player.height / 2)
+
+                    # Если пересекаются по X и Y
+                    if dx < combined_half_width and dy < combined_half_height:
+                        collision_with_player = True
+                        break
+
+                # Если нет коллизии с игроком, добавляем бочку
+                if not collision_with_player:
+                    self.barrel_list.append(barrel)
+                    self.all_entities.append(barrel)
+                    print(f"DEBUG: Бочка создана на позиции ({barrel.center_x}, {barrel.center_y})")
+                    return
+
+                print(f"DEBUG: Попытка {attempt + 1}: бочка пересекается с игроком")
+
+            print(f"DEBUG: Не удалось найти место для бочки")
+
+        except Exception as e:
+            print(f"Ошибка при создании бочки: {e}")
+
+    def check_barrel_collision(self):
+        """Проверяет, находится ли игрок рядом с бочкой для разрушения"""
+        if not self.controlled_entity or not self.barrel_list:
+            return None
+
+        player = self.controlled_entity
+
+        for barrel in self.barrel_list:
+            dx = abs(player.center_x - barrel.center_x)
+            combined_half_width = (player.width / 2 + barrel.width / 2)
+            border_distance_x = dx - combined_half_width
+
+            if border_distance_x <= 30:
+                return barrel
+
+        return None
+
+    def process_barrel_destruction(self):
+        """Разрушает бочку, если игрок нажал F и рядом с ней"""
+        if not self.f_pressed:
+            return
+
+        barrel = self.check_barrel_collision()
+        if barrel:
+            barrel_damage = 50
+            barrel.health -= barrel_damage
+
+            print(f"Бочка получила {barrel_damage} урона! Осталось здоровья: {barrel.health}")
+
+            if barrel.health <= 0:
+                self.barrel_list.remove(barrel)
+                self.all_entities.remove(barrel)
+                print("Бочка разрушена!")
+
+                self.level_score += 25
+                self.update_score_display()
+                print(f"+25 очков за бочку! Общие: {self.score}")
+
+        self.f_pressed = False
+
     def spawn_mob_by_background(self):
-        """Спаунит моба в зависимости от выбранного фона"""
         print(f"DEBUG: spawn_mob_by_background вызван")
 
         if not self.selected_background_folder:
             print(f"DEBUG: Нет папки фона для спауна моба")
             return
 
-        # Приводим к нижнему регистру для надежности
         folder = self.selected_background_folder.lower()
         print(f"DEBUG: Папка фона: {folder}")
 
         mob = None
+        mob_x = self.window.width - 200 if self.window else 1000
 
-        # Моб спавнится СПРАВА от персонажа
-        mob_x = self.window_width - 200  # Используем window_width вместо self.width
-        mob_y = self.ground_level + 50
+        # Моб на уровне земли (ground_level = 100)
+        mob_y = self.ground_level
 
-        # Выбираем моба по папке фона
         if folder == "ad":
             mob = Mob5()
             print(f"DEBUG: Выбран Mob5 для фона 'ad'")
@@ -152,18 +403,16 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
             mob = Mob1()
             print(f"DEBUG: Выбран Mob1 для фона 'zamok'")
 
-        # 20% шанс на mob3 в любой папке
         if random.random() < 0.2:
             mob = Mob3()
             print(f"DEBUG: Рандомно выбран Mob3")
 
         if mob:
             mob.center_x = mob_x
-            mob.center_y = mob_y + mob.height / 2
+            mob.center_y = mob_y + mob.height / 2  # Центрируем на уровне земли
             self.mob_list.append(mob)
             self.all_entities.append(mob)
-            print(f"DEBUG: Спаунен {type(mob).__name__} для фона {self.selected_background_folder}")
-            print(f"DEBUG: Позиция: ({mob.center_x}, {mob.center_y})")
+            print(f"DEBUG: Спаунен {type(mob).__name__} на позиции ({mob.center_x}, {mob.center_y})")
             print(f"DEBUG: mob_list содержит {len(self.mob_list)} мобов")
         else:
             print(f"DEBUG: Не удалось создать моба!")
@@ -182,7 +431,7 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
             old_y = player.center_y
             player.center_y = new_y
 
-            if player.collides_with_list(self.mob_list):
+            if player.collides_with_list(self.mob_list) or player.collides_with_list(self.barrel_list):
                 player.center_y = old_y
                 self.player_velocities[player_id] = 0
 
@@ -321,16 +570,13 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
                 if mob.health <= 0:
                     mobs_to_remove.append(mob)
 
-                    # ДОБАВЛЯЕМ ОЧКИ ЗА УБИЙСТВО МОБА
-                    # Очки = исходное здоровье моба (health до урона)
                     if hasattr(mob, 'initial_health'):
-                        self.score += mob.initial_health
+                        self.level_score += mob.initial_health
                     else:
-                        # Если initial_health нет, используем текущее health
-                        # Но лучше добавить initial_health при создании моба
-                        self.score += 100  # базовые очки
+                        self.level_score += 100
 
-                    print(f"Моб убит! Очки: {self.score}")
+                    self.update_score_display()
+                    print(f"Моб убит! Очки уровня: {self.level_score}, Общие: {self.score}")
                     self.mob_killed = True
                     self.kill_time = current_time
 
@@ -346,7 +592,6 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
         self.n_pressed = False
 
     def draw_health_bars(self):
-        """Рисует цифры здоровья над мобами"""
         for mob in self.mob_list:
             text_x = mob.center_x
             text_y = mob.center_y + mob.height / 2 + 15
@@ -358,8 +603,18 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
                 align="center", anchor_x="center", anchor_y="center"
             )
 
+        for barrel in self.barrel_list:
+            text_x = barrel.center_x
+            text_y = barrel.center_y + barrel.height / 2 + 15
+
+            arcade.draw_text(
+                str(barrel.health),
+                text_x, text_y,
+                arcade.color.BROWN, 14,
+                align="center", anchor_x="center", anchor_y="center"
+            )
+
     def load_specific_background(self, folder_name):
-        """Загружает фон из конкретной папки"""
         try:
             folder_path = f"../texture/{folder_name}"
             if not os.path.exists(folder_path):
@@ -379,14 +634,19 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
 
     def on_draw(self):
         self.clear()
-        self.camera.use()
-        self.background_manager.draw(self.window_width, self.window_height)
+
+        # Рисуем фон
+        self.background_manager.draw(self.window.width, self.window.height) if self.window else None
+
+        # Рисуем частицы пыли (под всеми объектами)
+        for particle in self.dust_particles:
+            particle.draw()
+
+        # Рисуем все игровые объекты
         self.all_entities.draw()
 
-        # Рисуем здоровье мобов
         self.draw_health_bars()
 
-        # Круг вокруг управляемого персонажа
         if self.controlled_entity and self.controlled_entity.is_controlled:
             arcade.draw_circle_outline(
                 self.controlled_entity.center_x,
@@ -396,46 +656,51 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
                 3
             )
 
-        # Управление
-        arcade.draw_text(
-            "AD-движение W-прыжок N-удар ESC-пауза",
-            10, self.window_height - 60,
-            arcade.color.WHITE, 12
-        )
+            # Показываем подсказку для разрушения бочки
+            barrel = self.check_barrel_collision()
+            if barrel and self.window:
+                arcade.draw_text(
+                    "Нажмите F чтобы разрушить бочку",
+                    self.window.width // 2,
+                    80,
+                    arcade.color.YELLOW, 16,
+                    align="center", anchor_x="center"
+                )
 
-        # Если моб убит
-        if self.mob_killed:
+        if self.window:
+            arcade.draw_text(
+                "AD-движение W-прыжок N-удар F-разрушить бочку ESC-пауза",
+                10, self.window.height - 60,
+                arcade.color.WHITE, 12
+            )
+
+        if self.mob_killed and self.window:
             arcade.draw_text(
                 "Моб убит! Возврат через несколько секунд...",
-                self.window_width // 2, 50,
+                self.window.width // 2, 50,
                 arcade.color.GREEN, 18,
                 align="center", anchor_x="center"
             )
 
-        # Если игра на паузе - рисуем затемнение и надпись
-        if self.game_paused:
-            # Рисуем два больших треугольника чтобы покрыть весь экран
-            # Верхний треугольник
+        if self.game_paused and self.window:
             arcade.draw_triangle_filled(
-                0, self.window_height,  # левый верх
-                self.window_width, self.window_height,  # правый верх
-                self.window_width // 2, 0,  # середина низа
+                0, self.window.height,
+                self.window.width, self.window.height,
+                self.window.width // 2, 0,
                 arcade.color.BLACK
             )
 
-            # Нижний треугольник
             arcade.draw_triangle_filled(
-                0, 0,  # левый низ
-                self.window_width, 0,  # правый низ
-                self.window_width // 2, self.window_height,  # середина верха
+                0, 0,
+                self.window.width, 0,
+                self.window.width // 2, self.window.height,
                 arcade.color.BLACK
             )
 
-            #  надпись ПАУЗА
             arcade.draw_text(
                 "ПАУЗА",
-                self.window_width // 2,
-                self.window_height // 2 + 50,
+                self.window.width // 2,
+                self.window.height // 2 + 50,
                 arcade.color.YELLOW,
                 64,
                 align="center",
@@ -444,11 +709,10 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
                 bold=True
             )
 
-            # Подсказка
             arcade.draw_text(
                 "Нажмите ESC для продолжения",
-                self.window_width // 2,
-                self.window_height // 2 - 50,
+                self.window.width // 2,
+                self.window.height // 2 - 50,
                 arcade.color.WHITE,
                 24,
                 align="center",
@@ -456,103 +720,87 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
                 anchor_y="center"
             )
 
-            # Информация о состоянии игры
-            if self.controlled_entity:
-                arcade.draw_text(
-                    f"Уровень: {self.level}",
-                    self.window_width // 2,
-                    self.window_height // 2 - 100,
-                    arcade.color.LIGHT_BLUE,
-                    20,
-                    align="center",
-                    anchor_x="center",
-                    anchor_y="center"
-                )
-
-        # Отображение здоровья и скорости
-        if self.controlled_entity and isinstance(self.controlled_entity, (Person1, Person2)):
+        if self.window and self.controlled_entity and isinstance(self.controlled_entity, (Person1, Person2)):
             arcade.draw_text(
-                f"Здоровье: {self.controlled_entity.health} | Скорость: {self.controlled_entity.movement_speed}",
-                self.window_width - 400, self.window_height - 30,
+                f"Здоровье: {self.controlled_entity.health} | Скорость: {self.controlled_entity.movement_speed} | Очки: {self.score} (Уровень: {self.level_score})",
+                self.window.width - 400, self.window.height - 30,
                 arcade.color.YELLOW, 16
             )
 
-        # Отображение очков
-        arcade.draw_text(
-            f"Очки: {self.score}",
-            10, self.window_height - 30,
-            arcade.color.YELLOW, 16
-        )
-
     def on_update(self, delta_time):
-        self.center_camera_on_player()
-        # Если игра на паузе - не обновляем логику
-        if self.game_paused:
-            return
-
-        # Проверяем убийство моба и время
         if self.mob_killed and self.kill_time:
             if time.time() - self.kill_time >= 10:
                 self.go_back_to_dors()
                 return
 
-        # Обычная логика игры
-        self.update_physics()
-        self.update_contact_system()
-        self.process_mob_attacks()
-        self.process_punch()  # Добавил обработку удара в update
-
-        if self.controlled_entity and self.controlled_entity.is_controlled:
-            if isinstance(self.controlled_entity, (Person1, Person2)):
-                dx = 0
-                player_speed = self.controlled_entity.movement_speed
-
-                if self.a_pressed:
-                    dx = -player_speed
-                if self.d_pressed:
-                    dx = player_speed
-
-                old_x = self.controlled_entity.center_x
-                self.controlled_entity.center_x += dx
-
-                if self.controlled_entity.collides_with_list(self.mob_list):
-                    self.controlled_entity.center_x = old_x
-
-                player_id = id(self.controlled_entity)
-                if self.w_pressed and self.player_velocities[player_id] == 0:
-                    self.player_velocities[player_id] = self.jump_force
-                    self.w_pressed = False
-
-                if self.controlled_entity.left < 0:
-                    self.controlled_entity.left = 0
-                if self.controlled_entity.right > self.window_width:
-                    self.controlled_entity.right = self.window_width
-
-    def on_key_press(self, key, modifiers):
-        if key == arcade.key.ESCAPE:
-            # Переключаем паузу по ESC
-            self.game_paused = not self.game_paused
-            print(f"Игра {'приостановлена' if self.game_paused else 'возобновлена'}")
-            return  # Важно: return чтобы не обрабатывались другие действия
-
-        # Если игра на паузе - блокируем остальные клавиши
         if self.game_paused:
             return
 
-        # Обычная обработка клавиш
+        # Обновляем частицы ВСЕГДА
+        self.update_dust_particles(delta_time)
+
+        if not self.game_paused:
+            self.update_physics()
+            self.update_contact_system()
+            self.process_mob_attacks()
+            self.process_barrel_destruction()
+
+            if self.controlled_entity and self.controlled_entity.is_controlled:
+                if isinstance(self.controlled_entity, (Person1, Person2)):
+                    dx = 0
+                    player_speed = self.controlled_entity.movement_speed
+
+                    if self.a_pressed:
+                        dx = -player_speed
+                    if self.d_pressed:
+                        dx = player_speed
+
+                    old_x = self.controlled_entity.center_x
+                    self.controlled_entity.center_x += dx
+
+                    if self.controlled_entity.collides_with_list(
+                            self.mob_list) or self.controlled_entity.collides_with_list(self.barrel_list):
+                        self.controlled_entity.center_x = old_x
+
+                    player_id = id(self.controlled_entity)
+                    if self.w_pressed and self.player_velocities[player_id] == 0:
+                        self.player_velocities[player_id] = self.jump_force
+                        self.w_pressed = False
+
+                    if self.window:
+                        if self.controlled_entity.left < 0:
+                            self.controlled_entity.left = 0
+                        if self.controlled_entity.right > self.window.width:
+                            self.controlled_entity.right = self.window.width
+
+    def on_key_press(self, key, modifiers):
+        if key == arcade.key.ESCAPE:
+            self.game_paused = not self.game_paused
+            print(f"Игра {'приостановлена' if self.game_paused else 'возобновлена'}")
+            return
+
+        if self.game_paused:
+            return
+
         if key == arcade.key.W:
             self.w_pressed = True
         elif key == arcade.key.A:
             self.a_pressed = True
         elif key == arcade.key.D:
             self.d_pressed = True
-        elif key == arcade.key.F:
-            self.n_pressed = True
         elif key == arcade.key.N:
             self.n_pressed = True
+            self.process_punch()
+        elif key == arcade.key.F:
+            self.f_pressed = True
+            self.process_barrel_destruction()
+        elif key == arcade.key.N and self.window:
+            if self.window.width == 1200:
+                self.window.set_size(2000, 1500)
+            else:
+                self.window.set_size(1200, 750)
 
     def on_key_release(self, key, modifiers):
-        # Если игра на паузе - блокируем
         if self.game_paused:
             return
 
@@ -562,64 +810,84 @@ class Game(arcade.View):  # ← ИЗМЕНЕНО НА View!
             self.a_pressed = False
         elif key == arcade.key.D:
             self.d_pressed = False
-        elif key == arcade.key.F:
-            self.n_pressed = False
         elif key == arcade.key.N:
             self.n_pressed = False
+        elif key == arcade.key.F:
+            self.f_pressed = False
 
     def go_back_to_dors(self):
-        """Возвращаемся в DorsWindow или показываем финальное окно"""
-        print(f"Уровень {self.level} завершен!")
-        print(f"Очки: {self.score}")
+        """Переход к следующему уровню с сохранением очков"""
+        print(f"=== Уровень {self.level} завершен! ===")
+        print(f"Очки уровня: {self.level_score}")
+        print(f"Общие очки до уровня: {self.total_score}")
 
-        # Если игрок умер - поражение
         if not self.controlled_entity or (self.controlled_entity and self.controlled_entity.health <= 0):
             print("Игрок умер - показываем поражение")
             self.show_final_window("defeat")
             return
 
-        # Если все уровни пройдены - победа
+        # Сохраняем очки в файл (только если игрок жив)
+        new_total_score = self.total_score + self.level_score
+        self.save_score_to_file(new_total_score)
+        print(f"Новые общие очки сохранены: {new_total_score}")
+
         if self.level >= self.max_levels:
             print("Все уровни пройдены - показываем победу")
+            # Останавливаем музыку перед победой
+            self.stop_background_music()
             self.show_final_window("victory")
             return
 
-        # Иначе продолжаем игру (следующий уровень)
-        from dors_window import DorsWindow
-        dors_view = DorsWindow(
-            level=self.level + 1,  # Увеличиваем уровень
-            max_levels=self.max_levels,
-            player=self.controlled_entity  # Передаем персонажа
+        # Переходим к следующему уровню
+        from dors_window import DorsView
+        dors = DorsView(
+            player=self.controlled_entity,  # Сохраняем игрока
+            level=self.level + 1  # Увеличиваем уровень
         )
 
-        # Переключаем View в том же окне
-        self.window.show_view(dors_view)
+        # Останавливаем музыку перед переходом
+        self.stop_background_music()
+
+        # Переключаем View
+        self.window.show_view(dors)
 
     def show_final_window(self, result):
-        """Показывает финальное окно с результатами"""
+        """Показ финального окна - работает и для победы и для поражения"""
         print(f"=== ПОКАЗЫВАЕМ ФИНАЛЬНОЕ ОКНО ===")
         print(f"Результат: {result}")
-        print(f"Очки: {self.score}")
-        print(f"Уровень: {self.level}")
 
-        # Определяем сколько уровней пройдено
+        # Останавливаем музыку
+        self.stop_background_music()
+
+        # Загружаем финальные очки из файла
+        final_score = self.load_score_from_file()
+        print(f"Финальные очки из файла: {final_score}")
+
         if result == "victory":
-            levels_completed = self.level  # 3 уровня пройдено
-        else:  # поражение
-            levels_completed = max(0, self.level - 1)  # на 1 меньше
+            # Победа - показываем FinalWindow и очищаем файл
+            print("Очищаем файл с очками...")
+            self.clear_score_file()
 
-        print(f"Уровней пройдено: {levels_completed}")
+            from final_window import FinalWindow
+            final_view = FinalWindow(
+                result="victory",
+                score=final_score,
+                levels_completed=self.level,
+                total_levels=self.max_levels
+            )
+            self.window.show_view(final_view)
+        else:
+            # Поражение - показываем FinalWindow с результатом "defeat"
+            from final_window import FinalWindow
+            final_view = FinalWindow(
+                result="defeat",
+                score=final_score,
+                levels_completed=max(0, self.level - 1),
+                total_levels=self.max_levels
+            )
+            self.window.show_view(final_view)
 
-        # Импортируем финальное окно
-        from final_window import FinalWindow
-
-        # Создаем финальное представление
-        final_view = FinalWindow(
-            result=result,
-            score=self.score,
-            levels_completed=levels_completed,
-            total_levels=self.max_levels
-        )
-
-        # Показываем финальное окно в том же окне
-        self.window.show_view(final_view)
+    def on_hide_view(self):
+        """Вызывается при скрытии окна (переход в другое View)"""
+        # Останавливаем музыку при выходе с уровня
+        self.stop_background_music()
