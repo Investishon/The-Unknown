@@ -36,7 +36,7 @@ class StartWindow(arcade.View):
                 self.window.show_view(AuthorsWindow())
 
     def open_dors_window(self):
-        """Открывает окно выбора дверей (старую игру) из pyfile"""
+        #Открывает окно выбора дверей (старую игру) из pyfile
         try:
             # Импортируем DorsWindow из pyfile
             import sys
@@ -58,6 +58,5 @@ class StartWindow(arcade.View):
             self.window.show_view(dors_view)  # ← ВАЖНО: меняем View, а не окно!
 
         except ImportError as e:
-            print(f"Ошибка загрузки Dors_window: {e}")
             # Возвращаемся в меню (в том же окне)
             self.window.show_view(StartWindow())

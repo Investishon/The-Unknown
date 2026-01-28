@@ -1,5 +1,6 @@
 import arcade
 
+
 class Mob5(arcade.Sprite):
     def __init__(self):
         super().__init__("../mobs/mob5.jpg", 0.5)

@@ -1,5 +1,6 @@
 import arcade
 
+
 class Person1(arcade.Sprite):
     def __init__(self):
         super().__init__("../person/person1.jpg", 1.0)

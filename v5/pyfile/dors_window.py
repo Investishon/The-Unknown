@@ -1,8 +1,6 @@
-# dors_window.py
 import arcade
 import random
 import os
-import time
 from person1 import Person1
 from person2 import Person2
 
@@ -59,7 +57,7 @@ class DorsView(arcade.View):
             self.arrange_images()
 
         except Exception as e:
-            print(f"Ошибка загрузки дверей: {e}")
+            pass
 
     def arrange_images(self):
         if not self.door_list:
@@ -215,7 +213,6 @@ class DorsView(arcade.View):
             self.d_pressed = False
 
     def start_transition(self):
-        """Начинает переход через дверь"""
         self.in_transition = True
         self.transition_timer = 0
 
@@ -235,13 +232,9 @@ class DorsView(arcade.View):
         # Выбираем случайный фон
         folders = ["ad", "les", "podzemel", "zamok"]
         self.selected_folder = random.choice(folders)
-        print(f"Выбран фон: {self.selected_folder}")
 
     # В dors_window.py в методе start_game:
     def start_game(self):
-        """Запускает главную игру с выбранным фоном"""
-        print(f"Уровень {self.level}/{self.max_levels}")
-        print(f"Передаем фон: {self.selected_folder}")
 
         from game import GameView
 

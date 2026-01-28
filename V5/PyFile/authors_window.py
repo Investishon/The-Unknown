@@ -1,6 +1,7 @@
 import arcade
 from start_window import StartWindow
 
+
 class AuthorsWindow(arcade.View):
     def __init__(self):
         super().__init__()

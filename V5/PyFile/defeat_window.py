@@ -1,4 +1,3 @@
-
 import arcade
 
 
@@ -89,7 +88,6 @@ class DefeatWindow(arcade.View):
             try:
                 with open("coin.txt", "w") as f:
                     f.write("0")
-                print("Файл с очками очищен при перезапуске")
             except:
                 pass
 
@@ -98,7 +96,6 @@ class DefeatWindow(arcade.View):
             dors = DorsView(level=1, player=None)
             self.window.show_view(dors)
         except ImportError as e:
-            print(f"Ошибка загрузки Dors_window: {e}")
             self.window.close()
 
     def return_to_main_menu(self):

@@ -19,4 +19,3 @@ for _ in range(10):
 sprite_list.draw()
 arcade.get_image().save("texture/pred/dust.png")
 
-print("Текстура пыли создана: dust.png")

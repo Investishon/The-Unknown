@@ -1,4 +1,3 @@
-
 import arcade
 
 
@@ -75,7 +74,6 @@ class FinalWindow(arcade.View):
             self.return_to_main_menu()
 
     def return_to_main_menu(self):
-        """Возврат в главное меню"""
         try:
             from start_window import StartWindow
             start_view = StartWindow()

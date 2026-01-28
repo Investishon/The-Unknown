@@ -1,9 +1,8 @@
-# main.py
 import arcade
 
 
 def main():
-    """Запускает игру в едином окне"""
+    #Запускает игру в едином окне"
     window = arcade.Window(1200, 750, "The Unknown", resizable=True)
 
     # Начинаем с меню или с dors

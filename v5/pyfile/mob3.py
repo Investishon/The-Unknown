@@ -1,5 +1,6 @@
 import arcade
 
+
 class Mob3(arcade.Sprite):
     def __init__(self):
         super().__init__("../mobs/mob3.jpg", 0.5)
@@ -11,4 +12,5 @@ class Mob3(arcade.Sprite):
         self.attack_damage = 50      # Сила атаки
         self.attack_range = 25       # Радиус атаки
         self.attack_delay = 2.0      # 2 секунды до первой атаки
-        self.attack_cooldown = 4.0   # 4 секунды кулдаун
+        self.attack_cooldown = 4.0
+        # 4 секунды кулдаун
